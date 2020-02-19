@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef void* IsolatePtr;
 typedef void* ContextPtr;
@@ -35,6 +36,23 @@ typedef struct {
     size_t number_of_detached_contexts;
 } IsolateHStatistics;
 
+typedef enum {
+    tSTRING,
+    tBOOL,
+    tFLOAT64,
+    tINT64,
+    tUNDEFINED,
+} ValueType;
+
+typedef struct {
+    ValueType Type;
+    const char* Data;
+    int Len;
+    int Bool;
+    double Float64;
+    int64_t Int64;
+} Value;
+
 extern void Init();
 extern IsolatePtr NewIsolate();
 extern void IsolateDispose(IsolatePtr ptr);
@@ -42,11 +60,19 @@ extern void IsolateTerminateExecution(IsolatePtr ptr);
 extern IsolateHStatistics IsolationGetHeapStatistics(IsolatePtr ptr);
 
 extern ContextPtr NewContext(IsolatePtr prt);
+extern ValuePtr Global(ContextPtr prt);
+extern ValuePtr ContextCreate(ContextPtr ctx, Value val);
 extern void ContextDispose(ContextPtr ptr);
 extern RtnValue RunScript(ContextPtr ctx_ptr, const char* source, const char* origin);
 
+extern RtnValue ValueCall(ValuePtr func, ValuePtr self_ptr, int argc, ValuePtr* argv);
+extern RtnValue ValueGet(ValuePtr ptr, const char* field);
+extern RtnError ValueSet(ValuePtr ptr, const char* field, ValuePtr valueptr);
 extern void ValueDispose(ValuePtr ptr);
 const char* ValueToString(ValuePtr ptr);
+extern int ValueToBool(ValuePtr ptr);
+extern int64_t ValueToInt64(ValuePtr ptr);
+extern double ValueToFloat64(ValuePtr ptr);
 
 const char* Version();
 

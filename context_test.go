@@ -61,6 +61,38 @@ func TestJSExceptions(t *testing.T) {
 	}
 }
 
+func TestCreate(t *testing.T) {
+	t.Parallel()
+	ctx, _ := v8go.NewContext(nil)
+	val, err := ctx.Create("test-string")
+	if err != nil {
+		t.Errorf("Create string should not error but got %v", err)
+	} else if val.String() != "test-string" {
+		t.Errorf("Create string expected %q but got %q", "test-string", val.String())
+	}
+
+	val, err = ctx.Create(true)
+	if err != nil {
+		t.Errorf("Create boolean should not error but got %v", err)
+	} else if !val.Bool() {
+		t.Errorf("Create boolean expected true")
+	}
+
+	val, err = ctx.Create(10)
+	if err != nil {
+		t.Errorf("Create int should not error but got %v", err)
+	} else if val.Int64() != int64(10) {
+		t.Errorf("Create int expected 10 but got %v", val.Int64())
+	}
+
+	val, err = ctx.Create(10.1)
+	if err != nil {
+		t.Errorf("Create float should not error but got %v", err)
+	} else if val.Float64() != float64(10.1) {
+		t.Errorf("Create float expected 10.1 but got %v", val.Float64())
+	}
+}
+
 func BenchmarkContext(b *testing.B) {
 	b.ReportAllocs()
 	vm, _ := v8go.NewIsolate()

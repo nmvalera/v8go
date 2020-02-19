@@ -5,6 +5,7 @@ package v8go
 import "C"
 import (
 	"fmt"
+	"reflect"
 	"runtime"
 	"unsafe"
 )
@@ -34,6 +35,7 @@ func NewContext(iso *Isolate) (*Context, error) {
 		iso: iso,
 		ptr: C.NewContext(iso.ptr),
 	}
+
 	runtime.SetFinalizer(ctx, (*Context).finalizer)
 	// TODO: [RC] catch any C++ exceptions and return as error
 	return ctx, nil
@@ -46,6 +48,45 @@ func (c *Context) Isolate() (*Isolate, error) {
 	return c.iso, nil
 }
 
+func (ctx *Context) Create(val interface{}) (*Value, error) {
+	v, _, err := ctx.create(reflect.ValueOf(val))
+	return v, err
+}
+
+var float64Type = reflect.TypeOf(float64(0))
+
+func (ctx *Context) create(val reflect.Value) (v *Value, allocated bool, err error) {
+	if !val.IsValid() {
+		return ctx.createVal(C.Value{Type: C.tUNDEFINED}), true, nil
+	}
+
+	switch val.Kind() {
+	case reflect.Bool:
+		bval := C.int(0)
+		if val.Bool() {
+			bval = 1
+		}
+		return ctx.createVal(C.Value{Type: C.tBOOL, Bool: bval}), true, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		num := C.double(val.Convert(float64Type).Float())
+		return ctx.createVal(C.Value{Type: C.tFLOAT64, Float64: num}), true, nil
+	case reflect.String:
+		gostr := val.String()
+		str := C.CString(gostr)
+		len := C.int(len(gostr))
+		defer C.free(unsafe.Pointer(str))
+		return ctx.createVal(C.Value{Type: C.tSTRING, Data: str, Len: len}), true, nil
+	default:
+		return nil, false, fmt.Errorf("Unsuported value kind %v", val.Kind())
+	}
+}
+
+func (ctx *Context) createVal(v C.Value) *Value {
+	return ctx.value(C.ContextCreate(ctx.ptr, v))
+}
+
 // RunScript executes the source JavaScript; origin or filename provides a
 // reference for the script and used in the stack trace if there is an error.
 // error will be of type `JSError` of not nil.
@@ -56,7 +97,23 @@ func (c *Context) RunScript(source string, origin string) (*Value, error) {
 	defer C.free(unsafe.Pointer(cOrigin))
 
 	rtn := C.RunScript(c.ptr, cSource, cOrigin)
-	return getValue(rtn), getError(rtn)
+	return getValue(rtn.value), getError(rtn.error)
+}
+
+// Global returns the JS global object for this context, with properties like
+// Object, Array, JSON, etc.
+func (ctx *Context) Global() *Value {
+	return ctx.value(C.Global(ctx.ptr))
+}
+
+func (ctx *Context) value(ptr C.ValuePtr) *Value {
+	if ptr == nil {
+		return nil
+	}
+
+	val := &Value{ptr}
+	runtime.SetFinalizer(val, (*Value).finalizer)
+	return val
 }
 
 // Close will dispose the context and free the memory.
@@ -68,28 +125,4 @@ func (c *Context) finalizer() {
 	C.ContextDispose(c.ptr)
 	c.ptr = nil
 	runtime.SetFinalizer(c, nil)
-}
-
-func getValue(rtn C.RtnValue) *Value {
-	if rtn.value == nil {
-		return nil
-	}
-	v := &Value{rtn.value}
-	runtime.SetFinalizer(v, (*Value).finalizer)
-	return v
-}
-
-func getError(rtn C.RtnValue) error {
-	if rtn.error.msg == nil {
-		return nil
-	}
-	err := &JSError{
-		Message:    C.GoString(rtn.error.msg),
-		Location:   C.GoString(rtn.error.location),
-		StackTrace: C.GoString(rtn.error.stack),
-	}
-	C.free(unsafe.Pointer(rtn.error.msg))
-	C.free(unsafe.Pointer(rtn.error.location))
-	C.free(unsafe.Pointer(rtn.error.stack))
-	return err
 }
