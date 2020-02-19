@@ -11,7 +11,7 @@ import (
 func TestContextExec(t *testing.T) {
 	t.Parallel()
 	ctx, _ := v8go.NewContext(nil)
-	ctx.RunScript(`const add = (a, b) => a + b`, "add.js")
+	_, _ = ctx.RunScript(`const add = (a, b) => a + b`, "add.js")
 	val, _ := ctx.RunScript(`add(3, 4)`, "main.js")
 	rtn := val.String()
 	if rtn != "7" {
@@ -99,10 +99,10 @@ func BenchmarkContext(b *testing.B) {
 	defer vm.Close()
 	for n := 0; n < b.N; n++ {
 		ctx, _ := v8go.NewContext(vm)
-		ctx.RunScript(script, "main.js")
+		_, _ = ctx.RunScript(script, "main.js")
 		str, _ := json.Marshal(makeObject())
 		cmd := fmt.Sprintf("process(%s)", str)
-		ctx.RunScript(cmd, "cmd.js")
+		_, _ = ctx.RunScript(cmd, "cmd.js")
 		ctx.Close()
 	}
 }
