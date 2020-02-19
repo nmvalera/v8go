@@ -6,6 +6,23 @@ import (
 	"rogchap.com/v8go"
 )
 
+func TestValueGetSet(t *testing.T) {
+	t.Parallel()
+	ctx, _ := v8go.NewContext(nil)
+	global := ctx.Global()
+	val, _ := ctx.RunScript(`"foo"`, "")
+	err := global.Set("test-key", val)
+	if err != nil {
+		t.Errorf("Set should not error but got %v", err)
+	}
+	got, err := global.Get("test-key")
+	if err != nil {
+		t.Errorf("Get should not error but got %v", err)
+	} else if got.String() != "foo" {
+		t.Errorf("Get returned %v but expected %v", got.String(), "foo")
+	}
+}
+
 func TestValueString(t *testing.T) {
 	t.Parallel()
 	ctx, _ := v8go.NewContext(nil)
@@ -30,5 +47,19 @@ func TestValueString(t *testing.T) {
 				t.Errorf("unespected result: expected %q, got %q", tt.out, str)
 			}
 		})
+	}
+}
+
+func TestValueCall(t *testing.T) {
+	ctx, _ := v8go.NewContext(nil)
+	add, _ := ctx.RunScript(`((x,y)=>(x+y+this.z))`, "")
+	self, _ := ctx.RunScript(`(function(){ this.z = 3; return this; })()`, "")
+	one, _ := ctx.RunScript(`1`, "")
+	two, _ := ctx.RunScript(`2`, "")
+	res, err := add.Call(ctx, self, one, two)
+	if err != nil {
+		t.Fatal(err)
+	} else if num := res.Int64(); num != 6 {
+		t.Errorf("Expected 6, got %v (%v)", num, res)
 	}
 }
