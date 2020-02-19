@@ -1,3 +1,3 @@
-module rogchap.com/v8go
+module github.com/nmvalera/v8go
 
-go 1.12
+go 1.13
