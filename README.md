@@ -22,6 +22,16 @@ val, _ := ctx.RunScript("result", "value.js") // return a value in JavaScript ba
 fmt.Printf("addition result: %s", val)
 ```
 
+### Creating Variables
+```go
+ctx, _ := v8go.NewContext(nil) // creates a new V8 context
+add, _ := ctx.RunScript(`((x,y)=>(x+y))`, "add.js") // executes a script to declare add function
+one := ctx.Create(1) // declare first variable
+two := ctx.Create(2) // declare second variable
+res, _ := add.Call(ctx, nil, one, two) // Call add function
+fmt.Printf("addition result: %s", res.Int64())
+```
+
 ### One VM, many contexts
 
 ```go
